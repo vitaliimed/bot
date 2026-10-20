@@ -72,6 +72,8 @@ Cloud Shell environment variables and shell history should be treated carefully.
 
 ## Operational notes
 - In channel access mode, Telegram membership is checked on every command and callback. API failures deny access; revoked posting rights take effect on the next request. Each administrator has a separate editing state.
+- Telegram and Gemini HTTP clients reuse connections for the lifetime of the service instance. Firestore calls and RSS parsing run outside the event loop, so they do not block other commands. Help and statistics buttons check permissions once; command handlers skip unnecessary editing-state reads.
+- Button presses are acknowledged before the access check, while all management actions still require authorization. Expired callbacks are ignored; HTTP 429 responses receive one bounded retry using Telegram's retry delay. Request durations are recorded as `Telegram update ... processed in ...s`.
 - Initial default: auto-publishing OFF. Enable after validating translations and sources.
 - To avoid paid usage, configure budget alerts and quotas at Google Cloud and Gemini provider. Alerts are not hard spend caps; services can still incur costs.
 - Verify that a selected Gemini model supports your API key, free tier, and structured output; change `GEMINI_MODEL` if necessary.
@@ -80,5 +82,7 @@ Cloud Shell environment variables and shell history should be treated carefully.
 
 ## Access checks
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m unittest discover -s tests -v
 ```
