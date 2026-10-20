@@ -6,6 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 export PROJECT_ID="${PROJECT_ID:-winged-ratio-377512}"
 export REGION="${REGION:-europe-north1}"
+export SCHEDULER_LOCATION="${SCHEDULER_LOCATION:-europe-west1}"
 export CHANNEL_ID="${CHANNEL_ID:-@suominewsua}"
 export ADMIN_ID="${ADMIN_ID:-0}"
 export GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.5-flash-lite}"
@@ -16,8 +17,8 @@ cleanup() {
 trap cleanup EXIT
 
 bash scripts/preflight.sh
-printf '\nProject: %s\nRegion: %s\nChannel: %s\nModel: %s\nAdmin ID: %s\n\n' \
-  "$PROJECT_ID" "$REGION" "$CHANNEL_ID" "$GEMINI_MODEL" "$ADMIN_ID"
+printf '\nProject: %s\nCloud Run region: %s\nScheduler location: %s\nChannel: %s\nModel: %s\nAdmin ID: %s\n\n' \
+  "$PROJECT_ID" "$REGION" "$SCHEDULER_LOCATION" "$CHANNEL_ID" "$GEMINI_MODEL" "$ADMIN_ID"
 
 if [[ -z "${BOT_TOKEN:-}" ]]; then
   read -r -s -p 'Telegram bot token: ' BOT_TOKEN

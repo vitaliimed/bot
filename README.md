@@ -35,7 +35,7 @@ Telegram-only admin interface + automated RSS intake + AI Ukrainian summaries + 
 6. Deploy from Cloud Shell. The launcher reads credentials without displaying them and stores them in Secret Manager.
 
 ## Deploy (Cloud Shell)
-For this channel, the launcher defaults to project `winged-ratio-377512`, region `europe-north1`, channel `@suominewsua`, model `gemini-3.5-flash-lite`, and `ADMIN_ID=0`. Environment variables can override these values.
+For this channel, the launcher defaults to project `winged-ratio-377512`, Cloud Run region `europe-north1`, Scheduler location `europe-west1`, channel `@suominewsua`, model `gemini-3.5-flash-lite`, and `ADMIN_ID=0`. Environment variables can override these values. Scheduler does not support `europe-north1`, so its location is configured separately through `SCHEDULER_LOCATION`.
 
 ```bash
 cd "$HOME/projects/bot"
@@ -43,7 +43,7 @@ git pull --ff-only
 bash scripts/launch-cloudshell.sh
 ```
 
-It prompts for the Telegram bot token and Gemini API key. See `LAUNCH-RU.md` to assign an administrator later. For a different project, configure the deployment directly:
+It prompts for the Telegram bot token and Gemini API key. To finish or repair only the scheduled job after Cloud Run is already deployed, run `PROJECT_ID=winged-ratio-377512 bash scripts/configure-scheduler.sh`. This reads the existing `cron-secret` from Secret Manager and creates or updates the job without rebuilding the service or rotating its secrets. See `LAUNCH-RU.md` to assign an administrator later. For a different project, configure the deployment directly:
 
 ```bash
 cd finland-news-bot

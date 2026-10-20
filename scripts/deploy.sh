@@ -7,6 +7,7 @@ set -euo pipefail
 : "${WEBHOOK_SECRET:?set WEBHOOK_SECRET}"
 : "${CRON_SECRET:?set CRON_SECRET}"
 REGION=${REGION:-europe-north1}
+SCHEDULER_LOCATION=${SCHEDULER_LOCATION:-europe-west1}
 GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
 SERVICE=finland-news-bot
 SA=finland-news-runtime
@@ -32,9 +33,9 @@ gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account="$R
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 curl -fsS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" --data-urlencode "url=$URL/telegram" --data-urlencode "secret_token=$WEBHOOK_SECRET" --data-urlencode 'allowed_updates=["message","callback_query"]'
 echo
-# Scheduler stores cron secret in job config: restrict IAM access to scheduler job.
-gcloud scheduler jobs describe finland-news-collect --location "$REGION" >/dev/null 2>&1 && gcloud scheduler jobs delete finland-news-collect --location "$REGION" --quiet
-gcloud scheduler jobs create http finland-news-collect --location "$REGION" --schedule='*/30 * * * *' --time-zone='Europe/Helsinki' --uri="$URL/collect" --http-method=POST --headers="X-Cron-Secret=$CRON_SECRET" --attempt-deadline=300s
+PROJECT_ID="$PROJECT_ID" REGION="$REGION" SCHEDULER_LOCATION="$SCHEDULER_LOCATION" \
+  SERVICE_URL="$URL" CRON_SECRET="$CRON_SECRET" \
+  bash "$(dirname "${BASH_SOURCE[0]}")/configure-scheduler.sh"
 printf '\nDeployed: %s\n' "$URL"
 if [[ "$ADMIN_ID" == 0 ]]; then
   printf 'Administrator is not assigned. Telegram admin commands are disabled; collection runs on schedule.\n'
