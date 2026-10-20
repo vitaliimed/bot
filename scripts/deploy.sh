@@ -2,6 +2,7 @@
 set -euo pipefail
 : "${PROJECT_ID:?set PROJECT_ID}"
 : "${ADMIN_ID:=0}"
+: "${ADMIN_AUTH_MODE:=id}"
 : "${CHANNEL_ID:?set CHANNEL_ID}"
 : "${BOT_TOKEN:?set BOT_TOKEN}"
 : "${WEBHOOK_SECRET:?set WEBHOOK_SECRET}"
@@ -29,7 +30,7 @@ printf %s "${GEMINI_API_KEY:-}" | gcloud secrets versions add gemini-api-key --d
 if ! gcloud firestore databases describe --database='(default)' >/dev/null 2>&1; then
   gcloud firestore databases create --database='(default)' --location="$REGION" --type=firestore-native
 fi
-gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account="$RUNTIME" --allow-unauthenticated --min-instances=0 --max-instances=2 --concurrency=8 --memory=512Mi --timeout=300 --set-env-vars="ADMIN_ID=$ADMIN_ID,CHANNEL_ID=$CHANNEL_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=$GEMINI_MODEL" --set-secrets='BOT_TOKEN=bot-token:latest,WEBHOOK_SECRET=webhook-secret:latest,CRON_SECRET=cron-secret:latest,GEMINI_API_KEY=gemini-api-key:latest'
+gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account="$RUNTIME" --allow-unauthenticated --min-instances=0 --max-instances=2 --concurrency=8 --memory=512Mi --timeout=300 --set-env-vars="ADMIN_ID=$ADMIN_ID,ADMIN_AUTH_MODE=$ADMIN_AUTH_MODE,CHANNEL_ID=$CHANNEL_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=$GEMINI_MODEL" --set-secrets='BOT_TOKEN=bot-token:latest,WEBHOOK_SECRET=webhook-secret:latest,CRON_SECRET=cron-secret:latest,GEMINI_API_KEY=gemini-api-key:latest'
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 curl -fsS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" --data-urlencode "url=$URL/telegram" --data-urlencode "secret_token=$WEBHOOK_SECRET" --data-urlencode 'allowed_updates=["message","callback_query"]'
 echo
@@ -37,7 +38,9 @@ PROJECT_ID="$PROJECT_ID" REGION="$REGION" SCHEDULER_LOCATION="$SCHEDULER_LOCATIO
   SERVICE_URL="$URL" CRON_SECRET="$CRON_SECRET" \
   bash "$(dirname "${BASH_SOURCE[0]}")/configure-scheduler.sh"
 printf '\nDeployed: %s\n' "$URL"
-if [[ "$ADMIN_ID" == 0 ]]; then
+if [[ "$ADMIN_AUTH_MODE" == channel_admins ]]; then
+  printf 'Channel owner and channel administrators with posting rights can open the bot with /start.\n'
+elif [[ "$ADMIN_ID" == 0 ]]; then
   printf 'Administrator is not assigned. Telegram admin commands are disabled; collection runs on schedule.\n'
 else
   printf 'Open your Telegram admin bot and send /start\n'

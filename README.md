@@ -3,7 +3,7 @@
 Telegram-only admin interface + automated RSS intake + AI Ukrainian summaries + channel publishing.
 
 ## What works
-- Private admin authorization by Telegram numeric user ID
+- Private admin authorization by an explicit Telegram ID or current channel posting rights
 - Add, enable, disable, delete RSS sources from Telegram
 - Built-in Yle starter feeds
 - Fetch every 30 minutes using Cloud Scheduler
@@ -29,13 +29,13 @@ Telegram-only admin interface + automated RSS intake + AI Ukrainian summaries + 
 ## Preparation
 1. Create bot with Telegram @BotFather and copy token.
 2. Create public Telegram channel; add bot as administrator with permission to post messages.
-3. Find the administrator's numeric Telegram user ID, or leave `ADMIN_ID=0` to assign one later. With `0`, all Telegram admin commands are disabled.
+3. With `ADMIN_AUTH_MODE=channel_admins`, the channel owner and human channel administrators who can post messages can manage the bot. Telegram provides their IDs automatically; no manual ID entry is needed. With `ADMIN_AUTH_MODE=id`, only the configured positive `ADMIN_ID` is accepted; `0` closes access in that mode.
 4. Create a Google Cloud project with billing enabled and gcloud CLI access.
 5. Create Gemini API key in Google AI Studio and check free-tier limits and data terms. AI key required for AI drafting; without it collected items remain `awaiting_ai`.
 6. Deploy from Cloud Shell. The launcher reads credentials without displaying them and stores them in Secret Manager.
 
 ## Deploy (Cloud Shell)
-For this channel, the launcher defaults to project `winged-ratio-377512`, Cloud Run region `europe-north1`, Scheduler location `europe-west1`, channel `@suominewsua`, model `gemini-3.5-flash-lite`, and `ADMIN_ID=0`. Environment variables can override these values. Scheduler does not support `europe-north1`, so its location is configured separately through `SCHEDULER_LOCATION`.
+For this channel, the launcher defaults to project `winged-ratio-377512`, Cloud Run region `europe-north1`, Scheduler location `europe-west1`, channel `@suominewsua`, model `gemini-3.5-flash-lite`, `ADMIN_AUTH_MODE=channel_admins`, and `ADMIN_ID=0`. Environment variables can override these values. Scheduler does not support `europe-north1`, so its location is configured separately through `SCHEDULER_LOCATION`.
 
 ```bash
 cd "$HOME/projects/bot"
@@ -43,12 +43,13 @@ git pull --ff-only
 bash scripts/launch-cloudshell.sh
 ```
 
-It prompts for the Telegram bot token and Gemini API key. To finish or repair only the scheduled job after Cloud Run is already deployed, run `PROJECT_ID=winged-ratio-377512 bash scripts/configure-scheduler.sh`. This reads the existing `cron-secret` from Secret Manager and creates or updates the job without rebuilding the service or rotating its secrets. See `LAUNCH-RU.md` to assign an administrator later. For a different project, configure the deployment directly:
+It prompts for the Telegram bot token and Gemini API key. For an already deployed service, `bash scripts/enable-channel-admin-access.sh` deploys the new access check and finishes Scheduler setup using the stored secrets; no token entry is needed. To finish or repair only the scheduled job, run `PROJECT_ID=winged-ratio-377512 bash scripts/configure-scheduler.sh`. See `LAUNCH-RU.md` for access options. For a different project with an explicit administrator ID, configure the deployment directly:
 
 ```bash
 cd finland-news-bot
 export PROJECT_ID='your-project-id'
 export ADMIN_ID='your-numeric-telegram-id'
+export ADMIN_AUTH_MODE='id'
 export CHANNEL_ID='@your_channel'
 read -rsp 'Telegram bot token: ' BOT_TOKEN; echo; export BOT_TOKEN
 read -rsp 'Gemini API key: ' GEMINI_API_KEY; echo; export GEMINI_API_KEY
@@ -70,8 +71,14 @@ Cloud Shell environment variables and shell history should be treated carefully.
 - `/stats`, `/help`
 
 ## Operational notes
+- In channel access mode, Telegram membership is checked on every command and callback. API failures deny access; revoked posting rights take effect on the next request. Each administrator has a separate editing state.
 - Initial default: auto-publishing OFF. Enable after validating translations and sources.
 - To avoid paid usage, configure budget alerts and quotas at Google Cloud and Gemini provider. Alerts are not hard spend caps; services can still incur costs.
 - Verify that a selected Gemini model supports your API key, free tier, and structured output; change `GEMINI_MODEL` if necessary.
 - News and events must be summarized in original words with attribution. Respect source licenses and rate limits.
 - For high volume, move collection and processing into background Cloud Tasks/Cloud Run Jobs to avoid request timeouts and add retries.
+
+## Access checks
+```bash
+python3 -m unittest discover -s tests -v
+```

@@ -7,12 +7,14 @@ import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, Request, HTTPException
 from google.cloud import firestore
+from .access import can_manage
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('newsbot')
 app = FastAPI(title='Finland News Bot')
 BOT_TOKEN = os.environ['BOT_TOKEN']
 ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
+ADMIN_AUTH_MODE = os.getenv('ADMIN_AUTH_MODE', 'id')
 CHANNEL_ID = os.environ['CHANNEL_ID']
 WEBHOOK_SECRET = os.environ['WEBHOOK_SECRET']
 CRON_SECRET = os.environ['CRON_SECRET']
@@ -53,6 +55,15 @@ async def say(chat, text, keyboard=None):
     payload = {'chat_id':chat, 'text':text[:4096], 'disable_web_page_preview':True}
     if keyboard: payload['reply_markup'] = {'inline_keyboard':keyboard}
     return await tg('sendMessage', payload)
+
+async def admin_access(user_id):
+    return await can_manage(user_id, mode=ADMIN_AUTH_MODE, admin_id=ADMIN_ID,
+                            channel_id=CHANNEL_ID, telegram=tg)
+
+def access_hint():
+    if ADMIN_AUTH_MODE == 'channel_admins':
+        return f'Управление доступно владельцу и администраторам канала {CHANNEL_ID} с правом публикации.'
+    return 'Управление этим ботом доступно только назначенному администратору.'
 
 def menu():
     return [[{'text':'📰 Очередь','callback_data':'queue'}, {'text':'📡 Источники','callback_data':'sources'}],
@@ -176,16 +187,21 @@ async def collect():
 
 async def handle_message(message):
     user=message.get('from',{}).get('id')
-    if ADMIN_ID <= 0 or user!=ADMIN_ID: return
-    chat=message['chat']['id']
-    if message['chat']['type']!='private': return
+    chat_info=message.get('chat',{})
+    if chat_info.get('type')!='private': return
+    chat=chat_info['id']
     text=(message.get('text') or '').strip()
-    state=setting('edit_state')
+    if not await admin_access(user):
+        if text.startswith('/start') or text=='/help':
+            await say(chat, access_hint())
+        return
+    edit_key=f'edit_state:{user}'
+    state=setting(edit_key)
     if state and text and not text.startswith('/'):
         ref=db.collection('items').document(state)
         if ref.get().exists and ref.get().to_dict().get('status')=='pending':
             ref.update({'text':sanitize(text,2500)})
-            put_setting('edit_state',None)
+            put_setting(edit_key,None)
             return await say(chat,'✏️ Текст сохранён. Открой /queue для публикации.')
     if text.startswith('/addsource '):
         parts=[x.strip() for x in text[len('/addsource '):].split('|')]
@@ -223,9 +239,13 @@ async def handle_message(message):
 
 async def handle_callback(callback):
     user=callback.get('from',{}).get('id')
-    if ADMIN_ID <= 0 or user!=ADMIN_ID: return
-    chat=callback['message']['chat']['id']
-    if callback['message']['chat']['type']!='private': return
+    chat_info=callback.get('message',{}).get('chat',{})
+    if chat_info.get('type')!='private': return
+    chat=chat_info['id']
+    if not await admin_access(user):
+        await tg('answerCallbackQuery',{'callback_query_id':callback['id'],
+                                       'text':'Доступ к управлению ограничен.','show_alert':True})
+        return
     data=callback.get('data','')
     await tg('answerCallbackQuery',{'callback_query_id':callback['id']})
     if data=='sources': return await show_sources(chat)
@@ -241,7 +261,7 @@ async def handle_callback(callback):
         ref=db.collection('items').document(data[7:]); snap=ref.get()
         if snap.exists and snap.to_dict().get('status')=='pending': ref.update({'status':'rejected'}); return await say(chat,'Отклонено')
     if data.startswith('edit:'):
-        put_setting('edit_state',data[5:])
+        put_setting(f'edit_state:{user}',data[5:])
         return await say(chat,'Пришли новый текст одним сообщением. Заголовок и ссылка останутся прежними.')
 
 @app.get('/health')
