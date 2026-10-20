@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 : "${PROJECT_ID:?set PROJECT_ID}"
-: "${ADMIN_ID:?set ADMIN_ID}"
+: "${ADMIN_ID:=0}"
 : "${CHANNEL_ID:?set CHANNEL_ID}"
 : "${BOT_TOKEN:?set BOT_TOKEN}"
 : "${WEBHOOK_SECRET:?set WEBHOOK_SECRET}"
 : "${CRON_SECRET:?set CRON_SECRET}"
 REGION=${REGION:-europe-north1}
+GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
 SERVICE=finland-news-bot
 SA=finland-news-runtime
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
@@ -27,11 +28,16 @@ printf %s "${GEMINI_API_KEY:-}" | gcloud secrets versions add gemini-api-key --d
 if ! gcloud firestore databases describe --database='(default)' >/dev/null 2>&1; then
   gcloud firestore databases create --database='(default)' --location="$REGION" --type=firestore-native
 fi
-gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account="$RUNTIME" --allow-unauthenticated --min-instances=0 --max-instances=2 --concurrency=8 --memory=512Mi --timeout=300 --set-env-vars="ADMIN_ID=$ADMIN_ID,CHANNEL_ID=$CHANNEL_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=gemini-2.5-flash" --set-secrets='BOT_TOKEN=bot-token:latest,WEBHOOK_SECRET=webhook-secret:latest,CRON_SECRET=cron-secret:latest,GEMINI_API_KEY=gemini-api-key:latest'
+gcloud run deploy "$SERVICE" --source . --region "$REGION" --service-account="$RUNTIME" --allow-unauthenticated --min-instances=0 --max-instances=2 --concurrency=8 --memory=512Mi --timeout=300 --set-env-vars="ADMIN_ID=$ADMIN_ID,CHANNEL_ID=$CHANNEL_ID,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GEMINI_MODEL=$GEMINI_MODEL" --set-secrets='BOT_TOKEN=bot-token:latest,WEBHOOK_SECRET=webhook-secret:latest,CRON_SECRET=cron-secret:latest,GEMINI_API_KEY=gemini-api-key:latest'
 URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format='value(status.url)')
 curl -fsS "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" --data-urlencode "url=$URL/telegram" --data-urlencode "secret_token=$WEBHOOK_SECRET" --data-urlencode 'allowed_updates=["message","callback_query"]'
 echo
 # Scheduler stores cron secret in job config: restrict IAM access to scheduler job.
 gcloud scheduler jobs describe finland-news-collect --location "$REGION" >/dev/null 2>&1 && gcloud scheduler jobs delete finland-news-collect --location "$REGION" --quiet
 gcloud scheduler jobs create http finland-news-collect --location "$REGION" --schedule='*/30 * * * *' --time-zone='Europe/Helsinki' --uri="$URL/collect" --http-method=POST --headers="X-Cron-Secret=$CRON_SECRET" --attempt-deadline=300s
-printf '\nDeployed: %s\nOpen your Telegram admin bot and send /start\n' "$URL"
+printf '\nDeployed: %s\n' "$URL"
+if [[ "$ADMIN_ID" == 0 ]]; then
+  printf 'Administrator is not assigned. Telegram admin commands are disabled; collection runs on schedule.\n'
+else
+  printf 'Open your Telegram admin bot and send /start\n'
+fi

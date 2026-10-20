@@ -1,43 +1,57 @@
 # Finland News Bot — запуск в Google Cloud Shell
 
-## Подготовка
-1. Создать **отдельный** Google Cloud проект с включённым billing. Не использовать клиентский SVM Rakennus или AutoHelp.
-2. Через @BotFather создать Telegram-бота и получить токен. **Никому не отправлять токен, в том числе в чат.**
-3. Создать публичный канал, назначить бота администратором с правом публикации. Записать `@username_канала`.
-4. Узнать собственный **числовой** Telegram user ID, не username.
-5. Создать Gemini API key через Google AI Studio и проверить доступность бесплатной модели/квоты.
-6. В Cloud Shell загрузить ZIP, распаковать, перейти в каталог с Dockerfile.
+## Настройки запуска
 
-## Команды в Cloud Shell
+- Проект Google Cloud: `winged-ratio-377512` с включённым billing.
+- Регион: `europe-north1`.
+- Канал: `@suominewsua`; бот `@suominews_bot` должен быть его администратором с правом публикации.
+- Модель: `gemini-3.5-flash-lite`; доступность генерации и квоты зависят от проекта Gemini.
+- `ADMIN_ID=0`: администратор пока не назначен. Управляющие команды, включая `/start`, не отвечают никому. Числовой Telegram ID можно указать позже.
+
+Настройки можно переопределить переменными окружения. Токены и ключи в репозитории не хранятся.
+
+## Запуск
+
 ```bash
-unzip finland-news-bot-cloudrun.zip -d finland-news-bot
-cd finland-news-bot
-export PROJECT_ID='YOUR_SEPARATE_PROJECT_ID'
-export ADMIN_ID='YOUR_NUMERIC_TELEGRAM_USER_ID'
-export CHANNEL_ID='@YOUR_PUBLIC_CHANNEL'
-export REGION='europe-north1'
-bash scripts/preflight.sh
-read -rsp 'Telegram bot token: ' BOT_TOKEN; echo; export BOT_TOKEN
-read -rsp 'Gemini API key: ' GEMINI_API_KEY; echo; export GEMINI_API_KEY
-export WEBHOOK_SECRET="$(openssl rand -hex 24)"
-export CRON_SECRET="$(openssl rand -hex 24)"
-bash scripts/deploy.sh
-unset BOT_TOKEN GEMINI_API_KEY WEBHOOK_SECRET CRON_SECRET
+cd "$HOME/projects/bot"
+git pull --ff-only
+bash scripts/launch-cloudshell.sh
 ```
-**Важно:** при первом запуске Cloud Build может потребовать дополнительных IAM разрешений; Cloud Shell выведет конкретную ошибку. Firestore database `(default)` создаётся однократно. Не запускайте deploy повторно без проверки последствий для webhook и секретов.
 
-## После развёртывания
-1. Написать боту `/start` с аккаунта администратора.
-2. Включить и проверить источники: `/sources`; выполнить `/collect`.
-3. Открыть `/queue`, проверить перевод и отправить 1 тестовую публикацию.
-4. Только после успешной проверки включить `/auto_on`.
-5. Проверить Cloud Scheduler job `finland-news-collect`, логи Cloud Run и наличие сообщений в канале.
+Скрипт запросит токен Telegram-бота и ключ Gemini. Вставляйте значение и нажимайте Enter; символы при вводе не отображаются. Секреты сохраняются в Google Secret Manager.
 
-## Управление
-`/start`, `/sources`, `/addsource Название | https://example.com/feed | news`, `/enable ID`, `/disable ID`, `/deletesource ID`, `/queue`, `/collect`, `/stats`, `/auto_on`, `/auto_off`.
+После успешного развёртывания появится строка `Deployed: https://...`. Проверка сервиса:
 
-## Безопасность и стоимость
-Cloud Run доступен публично для Telegram webhook, но проверяет секрет Telegram. Endpoint `/collect` защищён отдельным секретом в заголовке; доступ к конфигурации Scheduler ограничьте IAM. Текущая версия **не обеспечивает защиту от SSRF** при добавлении произвольных URL: подключайте только проверенные публичные RSS. Включите Billing Budget Alerts и квоты; budget alert не ограничивает расходы жёстко. Cloud Scheduler, Firestore, Secret Manager и AI могут стоить денег.
+```bash
+URL=$(gcloud run services describe finland-news-bot \
+  --project=winged-ratio-377512 --region=europe-north1 \
+  --format='value(status.url)')
+curl -fsS "$URL/health"
+```
+
+Ожидаемый ответ: `{"ok":true}`. Cloud Scheduler запускает сбор каждые 30 минут. Автопубликация в новой базе выключена: материалы остаются в очереди до назначения администратора и проверки.
+
+При первом запуске Cloud Build может потребовать дополнительных IAM-разрешений. При ошибке сохраните последние строки вывода; не запускайте весь deploy повторно без проверки причины.
+
+## Назначить администратора позже
+
+Команда запросит числовой Telegram ID будущего администратора:
+
+```bash
+(
+set -e
+read -r -p 'Числовой Telegram ID администратора: ' NEW_ADMIN_ID
+[[ "$NEW_ADMIN_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'Нужен положительный числовой ID'; exit 1; }
+gcloud run services update finland-news-bot \
+  --project=winged-ratio-377512 --region=europe-north1 \
+  --update-env-vars="ADMIN_ID=$NEW_ADMIN_ID"
+)
+```
+
+После обновления назначенный администратор пишет боту `/start`, открывает `/sources`, запускает `/collect` и проверяет `/queue`. После проверки можно включить `/auto_on`. Текущая версия поддерживает одного администратора. При следующем запуске deploy укажите его ID через `ADMIN_ID`, чтобы не вернуть значение `0`.
 
 ## Ограничения версии
-MVP для RSS-новостей. Полноценная афиша с обязательными картой/контактами, SEO-сайт, мультимедиа, управление расписанием и категориями кнопками пока не реализованы. Новости Migri/Kela/законы направляются на модерацию. В случае статуса `needs_reconciliation` вручную проверить канал перед повторной отправкой.
+
+MVP для RSS-новостей: источники, очередь, редактирование и публикация через Telegram. Афиша с обязательными картой и контактами, SEO-сайт, мультимедиа и несколько администраторов пока не реализованы. Новости о Migri, Kela, законах и чувствительных темах направляются на модерацию. При статусе `needs_reconciliation` проверьте канал перед повторной отправкой.
+
+Добавляйте только проверенные публичные RSS: полноценной защиты от SSRF пока нет. Доступ к заданию Scheduler должен быть ограничен IAM. Cloud Run, Scheduler, Firestore, Secret Manager и Gemini могут стоить денег; бюджетные уведомления не являются жёстким ограничителем расходов.

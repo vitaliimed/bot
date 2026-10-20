@@ -29,12 +29,22 @@ Telegram-only admin interface + automated RSS intake + AI Ukrainian summaries + 
 ## Preparation
 1. Create bot with Telegram @BotFather and copy token.
 2. Create public Telegram channel; add bot as administrator with permission to post messages.
-3. Find your numeric Telegram user ID (e.g. using @userinfobot). Never use username for access control.
+3. Find the administrator's numeric Telegram user ID, or leave `ADMIN_ID=0` to assign one later. With `0`, all Telegram admin commands are disabled.
 4. Create a Google Cloud project with billing enabled and gcloud CLI access.
 5. Create Gemini API key in Google AI Studio and check free-tier limits and data terms. AI key required for AI drafting; without it collected items remain `awaiting_ai`.
-6. Deploy from Cloud Shell, **do not paste secrets into chat**.
+6. Deploy from Cloud Shell. The launcher reads credentials without displaying them and stores them in Secret Manager.
 
 ## Deploy (Cloud Shell)
+For this channel, the launcher defaults to project `winged-ratio-377512`, region `europe-north1`, channel `@suominewsua`, model `gemini-3.5-flash-lite`, and `ADMIN_ID=0`. Environment variables can override these values.
+
+```bash
+cd "$HOME/projects/bot"
+git pull --ff-only
+bash scripts/launch-cloudshell.sh
+```
+
+It prompts for the Telegram bot token and Gemini API key. See `LAUNCH-RU.md` to assign an administrator later. For a different project, configure the deployment directly:
+
 ```bash
 cd finland-news-bot
 export PROJECT_ID='your-project-id'

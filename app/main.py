@@ -12,12 +12,12 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger('newsbot')
 app = FastAPI(title='Finland News Bot')
 BOT_TOKEN = os.environ['BOT_TOKEN']
-ADMIN_ID = int(os.environ['ADMIN_ID'])
+ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
 CHANNEL_ID = os.environ['CHANNEL_ID']
 WEBHOOK_SECRET = os.environ['WEBHOOK_SECRET']
 CRON_SECRET = os.environ['CRON_SECRET']
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.5-flash-lite')
 db = firestore.Client()
 TG = f'https://api.telegram.org/bot{BOT_TOKEN}'
 DEFAULT_FEEDS = {
@@ -176,7 +176,7 @@ async def collect():
 
 async def handle_message(message):
     user=message.get('from',{}).get('id')
-    if user!=ADMIN_ID: return
+    if ADMIN_ID <= 0 or user!=ADMIN_ID: return
     chat=message['chat']['id']
     if message['chat']['type']!='private': return
     text=(message.get('text') or '').strip()
@@ -223,7 +223,7 @@ async def handle_message(message):
 
 async def handle_callback(callback):
     user=callback.get('from',{}).get('id')
-    if user!=ADMIN_ID: return
+    if ADMIN_ID <= 0 or user!=ADMIN_ID: return
     chat=callback['message']['chat']['id']
     if callback['message']['chat']['type']!='private': return
     data=callback.get('data','')

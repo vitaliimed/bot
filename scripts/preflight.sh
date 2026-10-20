@@ -3,7 +3,7 @@ set -euo pipefail
 python3 -m compileall -q app
 for tool in gcloud curl openssl; do command -v "$tool" >/dev/null || { echo "Missing: $tool"; exit 1; }; done
 : "${PROJECT_ID:?Set PROJECT_ID}"
-: "${ADMIN_ID:?Set numeric ADMIN_ID}"
+: "${ADMIN_ID:=0}"
 : "${CHANNEL_ID:?Set CHANNEL_ID}"
 [[ "$ADMIN_ID" =~ ^[0-9]+$ ]] || { echo 'ADMIN_ID must be numeric'; exit 1; }
 [[ "$CHANNEL_ID" == @* || "$CHANNEL_ID" == -100* ]] || { echo 'CHANNEL_ID must be @public_channel or -100...'; exit 1; }
