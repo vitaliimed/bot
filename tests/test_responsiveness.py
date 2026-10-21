@@ -139,7 +139,8 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
             bot.app.state.gemini_client = client
             for _ in range(2):
-                self.assertEqual((await bot.ai_prepare('Title', 'Facts', 'https://example.org/news', 'news'))['body'], 'Summary')
+                with patch.dict(os.environ, {'GEMINI_API_KEY':'test-key'}):
+                    self.assertEqual((await bot.ai_prepare('Title', 'Facts', 'https://example.org/news', 'news', bot.policy.config()))['body'], 'Summary')
             self.assertFalse(client.is_closed)
             self.assertEqual(len(requests), 2)
 
@@ -179,18 +180,15 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
         database = MagicMock()
         database.collection.side_effect = lambda name: {'sources': sources, 'items': items}[name]
         xml = b'<rss version="2.0"><channel><title>Feed</title><item><guid>fixture</guid><title>News</title><link>https://example.org/news</link><description>Facts</description></item></channel></rss>'
-        rss_client = AsyncMock()
-        rss_client.__aenter__.return_value = rss_client
-        rss_client.get.return_value = httpx.Response(200, content=xml,
-                                                    request=httpx.Request('GET', 'https://example.org/rss'))
         prepared = {'title': 'Title', 'body': 'Summary', 'category': 'news',
                     'sensitive': False, 'has_missing_event_details': False}
         with patch.object(bot, 'db', database), \
-             patch.object(bot.httpx, 'AsyncClient', return_value=rss_client), \
+             patch.object(bot.media, 'fetch', AsyncMock(return_value=(xml,'https://example.org/rss'))), \
+             patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config({'batch_size':1,'image_mode':'off'}))), \
              patch.object(bot, 'ai_prepare', AsyncMock(return_value=prepared)), \
              patch.object(bot, 'setting', AsyncMock(return_value=False)), \
              patch.object(bot, 'publish', AsyncMock()) as publish:
-            stats = await bot.collect()
+            stats = await bot.collect_batch()
         self.assertEqual(stats['new'], 1)
         self.assertEqual(stats['prepared'], 1)
         self.assertEqual(stats['errors'], 0)
@@ -223,6 +221,7 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(bot, 'db', database), \
              patch.object(bot.firestore, 'transactional', side_effect=lambda function: function), \
+             patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config())), \
              patch.object(bot, 'say', AsyncMock(side_effect=send)):
             self.assertTrue(await bot.publish('fixture'))
         self.assertEqual(events, ['sending', 'telegram', 'published'])
@@ -237,6 +236,7 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
         database.collection.return_value.document.return_value = item
         with patch.object(bot, 'db', database), \
              patch.object(bot.firestore, 'transactional', side_effect=lambda function: function), \
+             patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config())), \
              patch.object(bot, 'say', AsyncMock(side_effect=TimeoutError('fixture'))) as send, \
              self.assertLogs('newsbot', level='ERROR'):
             self.assertFalse(await bot.publish('fixture'))
