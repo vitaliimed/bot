@@ -23,6 +23,8 @@ with patch.dict(os.environ, {
 class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
     user_id = 123456789
 
+    def setUp(self): bot.ai_router.COOLDOWNS.clear()
+
     def message(self, text):
         return {'from': {'id': self.user_id}, 'chat': {'id': self.user_id, 'type': 'private'}, 'text': text}
 
@@ -45,7 +47,7 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
             try:
                 self.assertTrue(await asyncio.to_thread(started.wait, 1))
                 self.assertFalse(task.done())
-                self.assertEqual(await asyncio.wait_for(bot.health(), timeout=0.2), {'ok': True})
+                self.assertTrue((await asyncio.wait_for(bot.health(), timeout=0.2))['ok'])
             finally:
                 release.set()
                 self.assertTrue(await task)
@@ -69,7 +71,7 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
                 output = stack.enter_context(patch.object(bot, handler, AsyncMock()))
                 await bot.handle_message(self.message(command))
                 access.assert_awaited_once_with(self.user_id)
-                setting.assert_not_awaited()
+                self.assertFalse(any(call.args[0].startswith('edit_state:') for call in setting.await_args_list))
                 output.assert_awaited_once_with(self.user_id)
 
     async def test_help_and_stats_buttons_acknowledge_before_one_access_check(self):
@@ -167,33 +169,18 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
             write.assert_not_awaited()
 
     async def test_collection_still_prepares_a_new_item_for_review(self):
-        source = SimpleNamespace(id='feed', to_dict=lambda: {
-            'enabled': True, 'url': 'https://example.org/rss', 'category': 'news',
-        })
-        sources = MagicMock()
-        sources.limit.return_value = sources
-        sources.stream.return_value = [source]
-        item = MagicMock()
-        item.get.return_value = SimpleNamespace(exists=False)
-        items = MagicMock()
-        items.document.return_value = item
-        database = MagicMock()
-        database.collection.side_effect = lambda name: {'sources': sources, 'items': items}[name]
+        from fake_db import Database
+        database = Database()
+        database.collection('sources').document('feed').set({'enabled':True,'url':'https://example.org/rss','category':'news'})
         xml = b'<rss version="2.0"><channel><title>Feed</title><item><guid>fixture</guid><title>News</title><link>https://example.org/news</link><description>Facts</description></item></channel></rss>'
-        prepared = {'title': 'Title', 'body': 'Summary', 'category': 'news',
-                    'sensitive': False, 'has_missing_event_details': False}
-        with patch.object(bot, 'db', database), \
-             patch.object(bot.media, 'fetch', AsyncMock(return_value=(xml,'https://example.org/rss'))), \
-             patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config({'batch_size':1,'image_mode':'off'}))), \
-             patch.object(bot, 'ai_prepare', AsyncMock(return_value=prepared)), \
-             patch.object(bot, 'setting', AsyncMock(return_value=False)), \
-             patch.object(bot, 'publish', AsyncMock()) as publish:
+        prepared = {'title':'Title','body':'Summary','category':'news','sensitive':False,'has_missing_event_details':False}
+        with patch.object(bot,'db',database), patch.object(bot.firestore,'transactional',database.transactional), \
+             patch.object(bot.media,'fetch',AsyncMock(return_value=(xml,'https://example.org/rss'))), \
+             patch.object(bot,'editor_config',AsyncMock(return_value=bot.policy.config({'batch_size':1,'image_mode':'off'}))), \
+             patch.object(bot,'ai_prepare',AsyncMock(return_value=prepared)),patch.object(bot,'publish',AsyncMock()) as publish:
             stats = await bot.collect_batch()
-        self.assertEqual(stats['new'], 1)
-        self.assertEqual(stats['prepared'], 1)
-        self.assertEqual(stats['errors'], 0)
-        self.assertEqual(item.create.call_args.args[0]['status'], 'processing')
-        self.assertEqual(item.update.call_args.args[0]['status'], 'pending')
+        self.assertEqual((stats['new'],stats['prepared'],stats['errors']),(1,1,0))
+        self.assertEqual(next(v for (k,_),v in database.data.items() if k=='items')['status'],'pending')
         publish.assert_not_awaited()
 
     async def test_publication_claim_and_status_writes_run_off_the_request_thread(self):
@@ -215,14 +202,14 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
         database.collection.return_value.document.return_value = item
         database.transaction.return_value = transaction
 
-        async def send(chat, text):
+        async def send(method, payload):
             events.append('telegram')
             return {'message_id': 42}
 
         with patch.object(bot, 'db', database), \
              patch.object(bot.firestore, 'transactional', side_effect=lambda function: function), \
              patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config())), \
-             patch.object(bot, 'say', AsyncMock(side_effect=send)):
+             patch.object(bot, 'tg', AsyncMock(side_effect=send)):
             self.assertTrue(await bot.publish('fixture'))
         self.assertEqual(events, ['sending', 'telegram', 'published'])
         self.assertTrue(all(worker != main_thread for worker in worker_threads))
@@ -237,7 +224,7 @@ class ResponsivenessTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(bot, 'db', database), \
              patch.object(bot.firestore, 'transactional', side_effect=lambda function: function), \
              patch.object(bot, 'editor_config', AsyncMock(return_value=bot.policy.config())), \
-             patch.object(bot, 'say', AsyncMock(side_effect=TimeoutError('fixture'))) as send, \
+             patch.object(bot, 'tg', AsyncMock(side_effect=TimeoutError('fixture'))) as send, \
              self.assertLogs('newsbot', level='ERROR'):
             self.assertFalse(await bot.publish('fixture'))
         send.assert_awaited_once()

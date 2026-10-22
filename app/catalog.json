@@ -1,0 +1,321 @@
+{
+  "yle-news-en": {
+    "name": "Yle News",
+    "url": "https://yle.fi/rss/news",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-uk": {
+    "name": "Новини Yle",
+    "url": "https://yle.fi/rss/novyny",
+    "category": "ukraine",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-fi": {
+    "name": "Yle Uutiset | Tuoreimmat",
+    "url": "https://yle.fi/rss/uutiset/tuoreimmat",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-simple": {
+    "name": "Yle Uutiset selkosuomeksi",
+    "url": "https://yle.fi/rss/selkouutiset",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-uusimaa": {
+    "name": "Yle.fi | Uusimaa",
+    "url": "https://yle.fi/rss/t/18-147345/fi",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-economy": {
+    "name": "Yle.fi | Talous",
+    "url": "https://yle.fi/rss/t/18-19274/fi",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-culture": {
+    "name": "Yle.fi | Kulttuuri",
+    "url": "https://yle.fi/rss/t/18-150067/fi",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-health": {
+    "name": "Yle.fi | Terveys",
+    "url": "https://yle.fi/rss/t/18-35138/fi",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-transport": {
+    "name": "Yle.fi | Liikenne",
+    "url": "https://yle.fi/rss/t/18-12/fi",
+    "category": "transport",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-science": {
+    "name": "Yle.fi | Tiede",
+    "url": "https://yle.fi/rss/t/18-819/fi",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "yle-sports": {
+    "name": "Yle Urheilu | Tuoreimmat",
+    "url": "https://yle.fi/rss/urheilu",
+    "category": "sport",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "hs-finland": {
+    "name": "Suomi - Helsingin Sanomat",
+    "url": "https://www.hs.fi/rss/suomi.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "hs-helsinki": {
+    "name": "Helsinki - Helsingin Sanomat",
+    "url": "https://www.hs.fi/rss/helsinki.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "hs-economy": {
+    "name": "Talous - Helsingin Sanomat",
+    "url": "https://www.hs.fi/rss/talous.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "hs-children": {
+    "name": "Lasten uutiset - Helsingin Sanomat",
+    "url": "https://www.hs.fi/rss/lastenuutiset.xml",
+    "category": "children",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "hs-science": {
+    "name": "Tiede - Helsingin Sanomat",
+    "url": "https://www.hs.fi/rss/tiede.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "is-finland": {
+    "name": "Kotimaa - Ilta-Sanomat",
+    "url": "https://www.is.fi/rss/kotimaa.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "is-economy": {
+    "name": "Taloussanomat - Ilta-Sanomat",
+    "url": "https://www.is.fi/rss/taloussanomat.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "is-family": {
+    "name": "Perhe - Ilta-Sanomat",
+    "url": "https://www.is.fi/rss/perhe.xml",
+    "category": "children",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "is-digital": {
+    "name": "Digitoday - Ilta-Sanomat",
+    "url": "https://www.is.fi/rss/digitoday.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "il-news": {
+    "name": "Iltalehti.fi tuoreimmat uutiset - Uutiset",
+    "url": "https://www.iltalehti.fi/rss/uutiset.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "il-money": {
+    "name": "Iltalehti.fi tuoreimmat uutiset - Raha",
+    "url": "https://www.iltalehti.fi/rss/raha.xml",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "il-family": {
+    "name": "Iltalehti.fi tuoreimmat uutiset - Perhe",
+    "url": "https://www.iltalehti.fi/rss/perhe.xml",
+    "category": "children",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "helsinki-times": {
+    "name": "Helsinki Times - Helsinki Times",
+    "url": "https://www.helsinkitimes.fi/?format=feed&type=rss",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "finland-today": {
+    "name": "Finland Today | News in English | finlandtoday.fi",
+    "url": "https://finlandtoday.fi/feed/",
+    "category": "news",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "ukrainians": {
+    "name": "Асоціація українців у Фінляндії",
+    "url": "https://ukrainians.fi/uk/feed/",
+    "category": "ukraine",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "traficom": {
+    "name": "www.traficom.fi RSS",
+    "url": "https://www.traficom.fi/feed/rss/fi",
+    "category": "transport",
+    "route": "news",
+    "kind": "rss",
+    "enabled": true,
+    "images_allowed": true,
+    "verified": "2026-10-21"
+  },
+  "events-helsinki": {
+    "name": "Helsinki — Linked Events",
+    "url": "https://api.hel.fi/linkedevents/v1/event/",
+    "kind": "linked",
+    "category": "events",
+    "route": "events",
+    "enabled": true,
+    "images_allowed": true,
+    "division": "ocd-division/country:fi/kunta:helsinki"
+  },
+  "events-espoo": {
+    "name": "Espoo — город, библиотеки, музеи и организаторы",
+    "url": "https://api.espoo.fi/events/v1/event/",
+    "kind": "linked",
+    "category": "events",
+    "route": "events",
+    "enabled": true,
+    "images_allowed": true
+  },
+  "events-vantaa": {
+    "name": "Vantaa — события в Linked Events",
+    "url": "https://api.hel.fi/linkedevents/v1/event/",
+    "division": "ocd-division/country:fi/kunta:vantaa",
+    "kind": "linked",
+    "category": "events",
+    "route": "events",
+    "enabled": true,
+    "images_allowed": true
+  },
+  "events-ukrainians": {
+    "name": "Асоціація українців у Фінляндії",
+    "url": "https://ukrainians.fi/uk/feed/",
+    "category": "events",
+    "route": "events",
+    "kind": "rss",
+    "city": "",
+    "enabled": true,
+    "images_allowed": true
+  },
+  "events-proukraina": {
+    "name": "Pro Ukraina",
+    "url": "https://www.proukraina.fi/feed/",
+    "category": "events",
+    "route": "events",
+    "kind": "rss",
+    "city": "",
+    "enabled": true,
+    "images_allowed": true
+  }
+}

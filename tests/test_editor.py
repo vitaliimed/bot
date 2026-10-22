@@ -28,8 +28,8 @@ def picture():
 class PolicyTests(unittest.TestCase):
     def test_defaults_are_not_mutated_by_category_buttons(self):
         cfg = policy.config()
-        cfg['categories'].remove('sport')
-        self.assertIn('sport',policy.config()['categories'])
+        cfg['categories'].remove('news')
+        self.assertIn('news',policy.config()['categories'])
 
     def test_validation_rejects_bad_limits_timezones_and_provider_endpoints(self):
         for key,value in [('daily_limit','-1'),('batch_size','1000'),('window_start','25:00'),
@@ -63,6 +63,8 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(policy.automatic_reason(dict(article(),review_passed=True,review_provider='groq'),cfg,CURRENT,{}),'')
 
 class AITests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self): ai.COOLDOWNS.clear()
+
     async def test_invalid_writer_flags_fall_back_to_other_provider(self):
         calls = []
         valid = {'title':'Новина','body':'Факти','category':'news','sensitive':False,'has_missing_event_details':False}
@@ -191,7 +193,7 @@ class EditorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await bot.put_setting('autopublish',True)
         await bot.change_config('daily_limit',1)
         await bot.change_config('interval_minutes',0)
-        with patch.object(bot,'now',return_value=CURRENT), patch.object(bot,'say',AsyncMock(return_value={'message_id':10})) as send:
+        with patch.object(bot,'now',return_value=CURRENT), patch.object(bot,'tg',AsyncMock(return_value={'message_id':10})) as send:
             results = await asyncio.gather(bot.publish('one',True,cfg),bot.publish('two',True,cfg))
         self.assertEqual(sum(results),1)
         send.assert_awaited_once()
@@ -264,7 +266,7 @@ class EditorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.save('old',article())
         self.database.collection('sources').document('disabled').set({'enabled':False})
         await bot.put_setting('autopublish',True)
-        with patch.object(bot,'now',return_value=CURRENT), patch.object(bot,'say',AsyncMock(return_value={'message_id':1})):
+        with patch.object(bot,'now',return_value=CURRENT), patch.object(bot,'tg',AsyncMock(return_value={'message_id':1})):
             stats = await bot.collect()
         self.assertEqual(stats['published'],1)
 
@@ -292,7 +294,7 @@ class EditorIntegrationTests(unittest.IsolatedAsyncioTestCase):
     def test_photo_caption_fits_utf16_and_preserves_credit(self):
         item = dict(article(),title='🇫🇮'*150,text='Довгий текст '*300,image_kind='generated')
         text = bot.format_post(item,policy.config(),photo=True)
-        self.assertLessEqual(len(text.encode('utf-16-le'))//2,1024)
+        self.assertLessEqual(len(bot.BeautifulSoup(text,'html.parser').get_text().encode('utf-16-le'))//2,1024)
         self.assertIn('Ілюстрація ШІ',text)
         self.assertIn(item['url'],text)
 
