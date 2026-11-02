@@ -219,8 +219,15 @@ async def show_sources(chat, page=0):
 
 async def item_docs(status, route=None, limit=200):
     route = route or ROUTE.get()
-    docs = await documents(db.collection('items').where('status','==',status))
-    return sorted([d for d in docs if route_of(d.to_dict()) == route],key=lambda d:d.to_dict().get('created_at',now()))[:limit]
+    # Filter and limit on the server. Fetching an entire status collection and
+    # slicing in Python caused unbounded, billable Firestore document reads.
+    max_results = max(1, min(int(limit), 1000))
+    query = (db.collection('items')
+             .where('status', '==', status)
+             .where('route', '==', route)
+             .limit(max_results))
+    docs = await documents(query)
+    return sorted(docs, key=lambda d: d.to_dict().get('created_at', now()))
 
 async def show_queue(chat, page=0):
     docs = await item_docs('pending',limit=1000)
