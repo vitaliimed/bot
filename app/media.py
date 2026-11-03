@@ -96,6 +96,44 @@ async def source_image(url, rss_candidates):
                 break
     return None
 
+def template_image(item):
+    """Create a royalty-free abstract editorial card entirely locally with Pillow."""
+    from PIL import ImageDraw, ImageFont
+    from textwrap import wrap
+    import io
+    canvas = Image.new('RGB', (1200, 675), '#132b48')
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, 0, 1200, 20), fill='#68b9d9')
+    draw.polygon([(0, 675), (0, 380), (460, 675)], fill='#1c476b')
+    draw.polygon([(1200, 0), (790, 0), (1200, 385)], fill='#265a71')
+    draw.ellipse((860, 240, 1210, 590), fill='#306a77')
+    draw.ellipse((1010, 405, 1195, 590), fill='#f9d34f')
+    draw.rounded_rectangle((70, 110, 750, 560), radius=25, fill='#0d233d')
+    try:
+        font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 45)
+        tiny = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 25)
+    except OSError:
+        font = ImageFont.load_default()
+        tiny = ImageFont.load_default()
+    draw.text((112, 146), 'FINLAND  |  SUOMI', font=tiny, fill='#82cfed')
+    title = str(item.get('title') or 'Finland News').strip()
+    lines = []
+    for paragraph in wrap(title, 23, break_long_words=True, break_on_hyphens=False):
+        lines.append(paragraph)
+        if len(lines) == 5: break
+    for index, line in enumerate(lines):
+        try:
+            draw.text((112, 220 + index * 60), line, font=font, fill='#ffffff')
+        except UnicodeEncodeError:
+            # No usable Unicode font in slim images: keep the abstract picture.
+            break
+    draw.text((900, 615), 'EDITORIAL ART', font=tiny, fill='#ffffff')
+    output = io.BytesIO()
+    canvas.save(output, 'JPEG', quality=78, optimize=True)
+    payload = output.getvalue()
+    if len(payload) > 450_000: raise ValueError('Template exceeds Firestore media limit')
+    return {'image_bytes': payload, 'image_kind': 'template', 'image_model': 'Pillow (free)', 'image_provider': 'local'}
+
 def image_prompt(item):
     return ('Create one clean editorial illustration for a Finland news channel, landscape composition. '
               'Clearly drawn illustration, not documentary photography. No text, logos or portraits of real people. '

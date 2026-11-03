@@ -174,7 +174,7 @@ SECTIONS = {
     'topics': ('🎯 Темы и фильтры', ['categories','include_words','exclude_words','max_age_hours','event_cities','event_horizon_days','free_only','event_languages']),
     'text': ('✍️ Текст', ['language','tone','body_length','signature','hashtags','source_link','silent','channel_tag']),
     'images': ('🖼 Фото', ['image_mode','require_image','image_daily_limit','image_order','openai_image_model','image_model','image_quality']),
-    'ai': ('🤖 ИИ и проверка', ['ai_order','ai_timeout','review_provider']+[p+'_model' for p in policy.PROVIDERS]),
+    'ai': ('🤖 ИИ и проверка', ['ai_mode','no_ai_autopublish','ai_order','ai_timeout','review_provider']+[p+'_model' for p in policy.PROVIDERS]),
 }
 
 async def show_settings(chat, section=None):
@@ -188,6 +188,7 @@ async def show_settings(chat, section=None):
     label, keys = SECTIONS[section]
     lines = [title,label]+[f'{k} = {",".join(map(str,cfg[k])) if isinstance(cfg[k],list) else cfg[k]}' for k in keys]
     if section == 'ai':
+        lines += ['\nai_mode=off: полностью без ИИ; язык текста сохраняется как у источника. '                   'fallback: попытка ИИ, затем исходный текст. Для нулевых затрат: /set ai_mode off']
         lines += ['\nКлючи подключены (доступ к модели проверяется при запросе):']
         lines += [f'{p}: {"да" if configured else "нет"}; пауза {ai_router.cooldown(p,cfg[p+"_model"])} сек.' for p,configured in ai_router.available().items()]
         lines += ['Ключи вводятся в Cloud Shell: bash scripts/connect-ai.sh all']
@@ -220,11 +221,13 @@ async def show_sources(chat, page=0):
 async def item_docs(status, route=None, limit=200):
     route = route or ROUTE.get()
     docs = await documents(db.collection('items').where('status','==',status))
-    return sorted([d for d in docs if route_of(d.to_dict()) == route],key=lambda d:d.to_dict().get('created_at',now()))[:limit]
+    return sorted([d for d in docs if route_of(d.to_dict()) == route],key=lambda d:d.to_dict().get('created_at',now()),reverse=True)[:limit]
 
 async def show_queue(chat, page=0):
     docs = await item_docs('pending',limit=1000)
-    if not docs: return await say(chat,'Очередь пуста. /failed — ошибки; /collect — собрать материалы.')
+    if ROUTE.get() == 'events':
+        docs = [d for d in docs if not policy.event_reason(d.to_dict(), now())]
+    if not docs: return await say(chat,'Нет готовых материалов. /incomplete — события без даты/места; /failed — ошибки; /collect — сбор.')
     page = max(0,min(page,(len(docs)-1)//4))
     for d in docs[page*4:(page+1)*4]:
         v = d.to_dict()
@@ -236,6 +239,18 @@ async def show_queue(chat, page=0):
                   f'Фото: {v.get("image_kind","нет")} {v.get("image_error","")}\nИИ: {v.get("ai_provider","—")}\n'
                   f'Проверка: {event_info or v.get("review_reason","")}',keyboard)
     return await say(chat,f'Страница {page+1}; всего {len(docs)}',[[{'text':'←','callback_data':'queue:'+str(max(0,page-1))},{'text':'→','callback_data':'queue:'+str(page+1)}]])
+
+async def show_incomplete(chat):
+    if ROUTE.get() != 'events':
+        return await say(chat, 'Команда /incomplete доступна для канала событий: /channel events')
+    docs = await item_docs('pending', limit=1000)
+    missing = [(d, policy.event_reason(d.to_dict(), now())) for d in docs]
+    missing = [(d, reason) for d, reason in missing if reason]
+    lines = [f'⚠️ События, требующие проверки: {len(missing)} (из последних 1000 ожидающих).']
+    for d, reason in missing[:12]:
+        lines.append(f'{d.id}: {reason} — {d.to_dict().get("title", "")[:75]}')
+    lines.append('Проверяйте официальную дату и место до команды /event ID | YYYY-MM-DDTHH:MM | Helsinki | Место | цена')
+    return await say(chat, '\n'.join(lines))
 
 async def show_stats(chat):
     docs = await documents(db.collection('items'))
@@ -249,7 +264,7 @@ async def show_stats(chat):
 
 async def show_help(chat):
     return await say(chat,'/start — каналы и меню\n/channel news или /channel events — выбрать канал\n/settings — разделы настроек; /set ИМЯ значение\n'
-        '/sources /queue /stats /failed /collect\n/auto_on /auto_off — выбранный канал\n/retry ID — повторить обработку\n'
+        '/sources /queue /incomplete /stats /failed /collect\n/auto_on /auto_off — выбранный канал\n/retry ID — повторить обработку\n'
         '/event ID | 2026-11-01T18:00 | Helsinki | Место и адрес | бесплатно или цена — проверенные данные события\n'
         '/ask вопрос — редакционный помощник ИИ (не меняет настройки и не публикует)\n'
         '/addsource Название | https://rss-url | events\n/enable ID /disable ID /deletesource ID\n'
@@ -358,11 +373,14 @@ async def reserve_image(cfg):
 async def prepare_image(item, cfg):
     mode = cfg['image_mode']
     if mode == 'off': return {}
-    if mode in ('source', 'source_generate') and item.get('source_images', True):
+    if mode == 'template': return await asyncio.to_thread(media.template_image, item)
+    if mode in ('source', 'source_generate', 'source_template') and item.get('source_images', True):
         try:
             result = await asyncio.wait_for(media.source_image(item['url'], item.get('image_candidates', [])), 25)
             if result: return result
         except Exception: pass
+    if mode == 'source_template':
+        return await asyncio.to_thread(media.template_image, item)
     errors = []
     if mode in ('generate', 'source_generate'):
         if not any(os.getenv('OPENAI_API_KEY','') if p=='openai' else GEMINI_API_KEY for p in cfg['image_order']):
@@ -382,11 +400,50 @@ async def prepare_image(item, cfg):
                 errors.append(provider+':'+type(error).__name__)
     return {'image_error':'; '.join(errors)} if errors else {}
 
+def offline_prepare(item, cfg):
+    """Free editorial fallback: no API calls, no fabricated translation or event metadata.
+
+    News are marked sensitive for human approval; future official events may go
+    through the existing date/location/auto-publication rules.
+    """
+    original_title = sanitize(item.get('title', ''), 300)
+    original_body = sanitize(item.get('summary') or item.get('text') or original_title,
+                             max(150, cfg['body_length']))
+    route = route_of(item)
+    event_ok = route == 'events' and not policy.event_reason(item, now())
+    unsafe_keywords = ('kela', 'migri', 'poliisi', 'police', 'terveys', 'health',
+                       'medical', 'war', 'sota', 'asylum', 'turvapaikka',
+                       'terror', 'rikos', 'crime', 'lääke', 'medicine', 'kuolema')
+    needs_review = any(word in (original_title + ' ' + original_body).casefold() for word in unsafe_keywords)
+    news_autopublish = (route == 'news' and cfg.get('no_ai_autopublish') is True
+                        and not needs_review)
+    data = {
+        'title': original_title,
+        'body': original_body or original_title,
+        'category': item.get('category', 'news'),
+        'topic': 'Джерело без ШІ',
+        'sensitive': not (event_ok or news_autopublish),
+        'has_missing_event_details': route == 'events' and not event_ok,
+        'review_passed': False,
+        'review_provider': 'off',
+        'review_reason': 'Збережено оригінальну мову джерела; ШІ не використовувався',
+        'ai_provider': 'off',
+        'ai_model': '',
+    }
+    if cfg['language'] == 'українська + suomi':
+        # We cannot claim a Ukrainian translation when AI is disabled.
+        # Show the original content once instead of duplicating as two languages.
+        data.update(title_fi='', body_fi='')
+    return data
+
 async def prepare_item(ref, item, cfg):
     started = time.monotonic()
     context = item.get('summary','')
     if route_of(item) == 'events': context += '\nОфіційні дані події: '+json.dumps(item.get('event',{}),default=str,ensure_ascii=False)
-    ai = await asyncio.wait_for(ai_prepare(item['title'], context, item['url'], item['category'], cfg),80)
+    mode = cfg.get('ai_mode', 'auto')
+    ai = (offline_prepare(item, cfg) if mode == 'off' else
+          await asyncio.wait_for(ai_prepare(item['title'], context, item['url'], item['category'], cfg),80))
+    if ai is None and mode == 'fallback': ai = offline_prepare(item, cfg)
     if ai is None: raise ValueError('All configured AI writers unavailable')
     if route_of(item) == 'news' and ai['category'] == 'events':
         # An event found in a news feed belongs to the event channel and its language/settings.
@@ -662,6 +719,7 @@ async def handle_message(message):
             return await say(chat,'✏️ Текст сохранён. Открой /queue для публикации.')
     if text == '/settings': return await show_settings(chat)
     if text == '/failed': return await show_failed(chat)
+    if text == '/incomplete': return await show_incomplete(chat)
     if text.startswith('/set ') or text.startswith('/reset '):
         parts = text.split(maxsplit=2)
         try:
@@ -789,7 +847,16 @@ async def handle_callback(callback):
     if data=='stats': return await show_stats(chat)
     if data=='toggle': await put_setting(route_key('autopublish'),not await setting(route_key('autopublish'),False)); return await show_settings(chat)
     if data=='collect': return await request_collection(chat)
-    if data.startswith('pub:'): return await say(chat,'Опубликовано.' if await publish(data[4:]) else 'Не опубликовано; проверь статус.')
+    if data.startswith('pub:'):
+        docid = data[4:]
+        snap = await asyncio.to_thread(db.collection('items').document(docid).get)
+        if snap.exists and route_of(snap.to_dict()) == 'events':
+            reason = policy.event_reason(snap.to_dict(), now())
+            if reason:
+                return await say(chat, 'Не опубликовано: ' + reason +
+                       '. /incomplete — список; /event ID | YYYY-MM-DDTHH:MM | Helsinki | Место | цена — после проверки фактов.')
+        return await say(chat, 'Опубликовано.' if await publish(docid) else
+                         'Не опубликовано. Посмотри /failed и журналы Cloud Run; пост мог уже уйти в канал.')
     if data.startswith('reject:'):
         ref=db.collection('items').document(data[7:])
         if await transition_item(ref, {'status':'rejected'}):

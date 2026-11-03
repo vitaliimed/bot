@@ -11,7 +11,7 @@ python3 scripts/diagnose.py --preflight
 python3 -m compileall -q app
 PREVIOUS_REVISION=$(gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(status.latestReadyRevisionName)')
 RUNTIME=$(gcloud run services describe "$SERVICE" --project="$PROJECT_ID" --region="$REGION" --format='value(spec.template.spec.serviceAccountName)')
-APP_VERSION=$(git rev-parse --short HEAD)
+APP_VERSION=${APP_VERSION_OVERRIDE:-$(git rev-parse --short HEAD)}
 printf 'Previous revision: %s\n' "$PREVIOUS_REVISION"
 # Allows /collect to trigger the two existing Scheduler jobs without a long Telegram request.
 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$RUNTIME" \

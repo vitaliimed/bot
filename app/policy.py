@@ -15,7 +15,7 @@ DEFAULTS = {
     'image_mode': 'source_generate', 'require_image': False, 'image_daily_limit': 3,
     'image_model': 'gemini-3.1-flash-image', 'ai_order': ['gemini', 'groq', 'openai'],
     'image_order': ['openai', 'gemini'], 'openai_image_model': 'gpt-image-2.5-flare',
-    'image_quality': 'low',
+    'image_quality': 'low', 'ai_mode': 'auto', 'no_ai_autopublish': False,
     'review_provider': 'off', 'gemini_model': 'gemini-3.5-flash-lite',
     'groq_model': 'openai/gpt-oss-20b', 'openai_model': 'gpt-4.1-mini',
     'deepseek_model': 'deepseek-flash', 'mistral_model': 'mistral-small-latest',
@@ -30,7 +30,8 @@ EVENT_DEFAULTS = {'categories': ['events'], 'language': 'українська + 
 RANGES = {'daily_limit': (0, 100), 'interval_minutes': (0, 1440), 'max_age_hours': (1, 720),
           'batch_size': (1, 10), 'body_length': (150, 2500), 'image_daily_limit': (0, 30),
           'event_horizon_days': (1, 180), 'ai_timeout': (5, 25)}
-CHOICES = {'image_mode': ('off', 'source', 'source_generate', 'generate'),
+CHOICES = {'image_mode': ('off', 'source', 'source_generate', 'generate', 'source_template', 'template'),
+           'ai_mode': ('auto', 'off', 'fallback'),
            'image_quality': ('low', 'medium', 'high'),
            'review_provider': ('off',) + PROVIDERS,
            'language': ('українська', 'suomi', 'українська + suomi', 'русский', 'English'),
