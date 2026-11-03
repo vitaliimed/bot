@@ -53,6 +53,17 @@ class ChannelTests(unittest.IsolatedAsyncioTestCase):
         self.save('event',event())
         self.assertEqual([d.id for d in await bot.item_docs('pending','events',limit=1)],['event'])
 
+    async def test_queue_reads_are_limited_in_firestore(self):
+        self.save('news', article(route='news'))
+        self.save('event', event())
+        with patch.object(bot, 'documents', wraps=bot.documents) as stream:
+            docs = await bot.item_docs('pending', 'events', limit=1)
+        self.assertEqual([d.id for d in docs], ['event'])
+        query = stream.call_args.args[0]
+        self.assertEqual(query.maximum, 1)
+        self.assertIn(('status', 'pending'), query.filters)
+        self.assertIn(('route', 'events'), query.filters)
+
     async def test_event_requires_event_channel_user_permission(self):
         self.save('event',event())
         with patch.object(bot,'admin_access',AsyncMock(return_value=False)) as access:
